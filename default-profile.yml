@@ -1,0 +1,3 @@
+# Reference fragment only; do not replace the full live config.yml with this file.
+modelProfile:
+  default: daily

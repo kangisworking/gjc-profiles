@@ -1,0 +1,82 @@
+# Local Claude + OpenAI profiles. Re-running the upstream installer replaces these profiles.
+# Model IDs and thinking levels are selected from the installed GJC catalog.
+# Catalog registration does not guarantee account access or successful API calls.
+profiles:
+  # Keep routine work lighter; premium models are assigned to specialized profiles.
+  daily:
+    required_providers: [anthropic, openai-codex]
+    model_mapping:
+      default: anthropic/claude-opus-5:medium
+      executor: openai-codex/gpt-5.6-luna:high
+      planner: openai-codex/gpt-5.6-sol:high
+      architect: anthropic/claude-opus-5:high
+      critic: openai-codex/gpt-5.6-sol:high
+
+  coding-sprint:
+    required_providers: [anthropic, openai-codex]
+    model_mapping:
+      default: anthropic/claude-opus-5:medium
+      executor: anthropic/claude-fable-5-1:high
+      planner: openai-codex/gpt-5.6-sol:high
+      architect: anthropic/claude-opus-5:high
+      critic: openai-codex/gpt-6-astra:high
+
+  cyber-cop:
+    required_providers: [anthropic, openai-codex]
+    model_mapping:
+      default: openai-codex/gpt-6-astra:medium
+      executor: openai-codex/gpt-5.6-terra:high
+      planner: anthropic/claude-opus-5:high
+      architect: anthropic/claude-fable-5-1:xhigh
+      critic: openai-codex/gpt-6-astra:xhigh
+
+  # Retain Opus as the main implementation model; use Fable and Astra for review.
+  ultimate-opus:
+    required_providers: [anthropic, openai-codex]
+    model_mapping:
+      default: anthropic/claude-opus-5:high
+      executor: anthropic/claude-opus-5:high
+      planner: openai-codex/gpt-6-astra:xhigh
+      architect: anthropic/claude-fable-5-1:xhigh
+      critic: openai-codex/gpt-6-astra:xhigh
+
+  # Role assignments only; no automatic voting workflow or third-provider independence.
+  llm-council:
+    required_providers: [anthropic, openai-codex]
+    model_mapping:
+      default: openai-codex/gpt-6-astra:medium
+      executor: openai-codex/gpt-5.6-terra:high
+      planner: openai-codex/gpt-5.6-sol:xhigh
+      architect: anthropic/claude-opus-5:high
+      critic: anthropic/claude-fable-5-1:xhigh
+
+  # Manual escalation: Astra implements, Fable reviews; no automatic retry policy.
+  escalation:
+    required_providers: [anthropic, openai-codex]
+    model_mapping:
+      default: anthropic/claude-fable-5-1:high
+      executor: openai-codex/gpt-6-astra:xhigh
+      planner: openai-codex/gpt-6-astra:xhigh
+      architect: anthropic/claude-opus-5:xhigh
+      critic: anthropic/claude-fable-5-1:xhigh
+
+  # Claude handles broad context; pass bounded review slices to the Astra critic.
+  # Installed GJC lists Astra at 272K; this is not an all-roles 1M-context profile.
+  monorepo:
+    required_providers: [anthropic, openai-codex]
+    model_mapping:
+      default: anthropic/claude-opus-5:medium
+      executor: anthropic/claude-opus-5:high
+      planner: anthropic/claude-opus-5:high
+      architect: anthropic/claude-fable-5-1:high
+      critic: openai-codex/gpt-6-astra:high
+
+  # Keep premium models out of budget; actual cost and quotas depend on the account plan.
+  budget:
+    required_providers: [anthropic, openai-codex]
+    model_mapping:
+      default: openai-codex/gpt-5.6-luna:medium
+      executor: openai-codex/gpt-5.6-luna:high
+      planner: openai-codex/gpt-5.6-luna:high
+      architect: anthropic/claude-sonnet-5:high
+      critic: anthropic/claude-sonnet-5:high
