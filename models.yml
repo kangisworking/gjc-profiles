@@ -80,3 +80,78 @@ profiles:
       planner: openai-codex/gpt-5.6-luna:high
       architect: anthropic/claude-sonnet-5:high
       critic: anthropic/claude-sonnet-5:high
+
+  # ---------------------------------------------------------------------------
+  # Single-vendor profiles.
+  #
+  # Purpose: when one vendor's account quota is exhausted, switch the WHOLE
+  # session to the other vendor with `/model` or `--mpreset`. GJC never crosses
+  # providers automatically, so the cross-vendor switch is a manual profile
+  # change by design.
+  #
+  # Each role is an ordered fallback chain (first entry primary). GJC advances to
+  # the next entry on request-time 429/quota/auth/5xx failures, consuming
+  # `fallback.maxAttempts` (default 3) per entry. Every entry stays inside the
+  # profile's single provider, so a chain only survives per-model limits, not an
+  # account-wide block. Unavailable entries are skipped at resolution for free.
+  # ---------------------------------------------------------------------------
+
+  # Claude only: fast iteration, lowest reasoning spend.
+  claude-fast:
+    required_providers: [anthropic]
+    model_mapping:
+      default: [anthropic/claude-sonnet-5:low, anthropic/claude-haiku-4-5:low]
+      executor: [anthropic/claude-sonnet-5:medium, anthropic/claude-haiku-4-5:medium]
+      planner: [anthropic/claude-sonnet-5:medium, anthropic/claude-haiku-4-5:medium]
+      architect: [anthropic/claude-fable-5-1:medium, anthropic/claude-sonnet-5:medium]
+      critic: [anthropic/claude-sonnet-5:medium, anthropic/claude-haiku-4-5:medium]
+
+  # Claude only: everyday main driver, Opus head with in-vendor descent.
+  claude-max:
+    required_providers: [anthropic]
+    model_mapping:
+      default: [anthropic/claude-opus-5:medium, anthropic/claude-fable-5-1:medium, anthropic/claude-sonnet-5:medium]
+      executor: [anthropic/claude-fable-5-1:high, anthropic/claude-sonnet-5:high]
+      planner: [anthropic/claude-opus-5:high, anthropic/claude-fable-5-1:high]
+      architect: [anthropic/claude-opus-5:high, anthropic/claude-fable-5-1:xhigh]
+      critic: [anthropic/claude-fable-5-1:high, anthropic/claude-sonnet-5:high]
+
+  # Claude only: highest reasoning levels the catalog exposes for these models.
+  claude-ultra:
+    required_providers: [anthropic]
+    model_mapping:
+      default: [anthropic/claude-opus-5:high, anthropic/claude-fable-5-1:high]
+      executor: [anthropic/claude-opus-5:max, anthropic/claude-fable-5-1:xhigh]
+      planner: [anthropic/claude-opus-5:xhigh, anthropic/claude-fable-5-1:xhigh]
+      architect: [anthropic/claude-opus-5:max, anthropic/claude-fable-5-1:xhigh]
+      critic: [anthropic/claude-fable-5-1:xhigh, anthropic/claude-sonnet-5:xhigh]
+
+  # OpenAI only: fast iteration, lowest reasoning spend.
+  openai-fast:
+    required_providers: [openai-codex]
+    model_mapping:
+      default: [openai-codex/gpt-5.6-luna:low, openai-codex/gpt-5.4-mini:low]
+      executor: [openai-codex/gpt-5.6-luna:medium, openai-codex/gpt-5.4-mini:medium]
+      planner: [openai-codex/gpt-5.6-sol:medium, openai-codex/gpt-5.6-luna:medium]
+      architect: [openai-codex/gpt-5.6-sol:medium, openai-codex/gpt-5.6-luna:medium]
+      critic: [openai-codex/gpt-5.6-luna:medium, openai-codex/gpt-5.4-mini:medium]
+
+  # OpenAI only: everyday main driver, Astra head with in-vendor descent.
+  openai-max:
+    required_providers: [openai-codex]
+    model_mapping:
+      default: [openai-codex/gpt-6-astra:medium, openai-codex/gpt-5.6-sol:medium, openai-codex/gpt-5.6-luna:medium]
+      executor: [openai-codex/gpt-5.6-terra:high, openai-codex/gpt-5.6-luna:high]
+      planner: [openai-codex/gpt-5.6-sol:high, openai-codex/gpt-6-astra:high]
+      architect: [openai-codex/gpt-6-astra:high, openai-codex/gpt-5.6-sol:xhigh]
+      critic: [openai-codex/gpt-5.6-sol:high, openai-codex/gpt-5.6-terra:high]
+
+  # OpenAI only: highest reasoning levels the catalog exposes for these models.
+  openai-ultra:
+    required_providers: [openai-codex]
+    model_mapping:
+      default: [openai-codex/gpt-6-astra:high, openai-codex/gpt-5.6-sol:high]
+      executor: [openai-codex/gpt-6-astra:max, openai-codex/gpt-5.6-terra:xhigh]
+      planner: [openai-codex/gpt-6-astra:xhigh, openai-codex/gpt-5.6-sol:max]
+      architect: [openai-codex/gpt-6-astra:max, openai-codex/gpt-5.6-sol:xhigh]
+      critic: [openai-codex/gpt-5.6-sol:max, openai-codex/gpt-6-astra:xhigh]
