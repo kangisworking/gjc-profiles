@@ -51,6 +51,54 @@
 - **monorepo**: 큰 저장소의 넓은 맥락은 Claude로 처리하고 Astra 검토 입력은 제한하는 작업.
 - **budget**: 프리미엄 모델을 기본 경로에서 줄이고 Luna/Sonnet을 사용하는 작업.
 
+## 단일 vendor 프로필 (`claude-*` / `openai-*`)
+
+한쪽 vendor의 계정 한도가 소진됐을 때 세션 전체를 반대편으로 옮기기 위한 짝이다.
+GJC는 provider를 **자동으로 교차하지 않는다**. role 체인에 다른 provider가 명시돼
+있을 때만 넘어가므로, vendor 교체는 의도적인 프로필 변경이다.
+
+| 프로필 | default 체인 | 용도 |
+| --- | --- | --- |
+| `claude-fast` | S5:low → Haiku4.5:low | 빠른 반복, reasoning 최소 |
+| `claude-max` | O5:medium → F5.1:medium → S5:medium | 주력 |
+| `claude-ultra` | O5:high → F5.1:high | 최고 강도 |
+| `openai-fast` | LUNA:low → 5.4-mini:low | 빠른 반복, reasoning 최소 |
+| `openai-max` | ASTRA:medium → SOL:medium → LUNA:medium | 주력 |
+| `openai-ultra` | ASTRA:high → SOL:high | 최고 강도 |
+
+모든 role이 순서 있는 폴백 체인이고, 모든 엔트리는 그 프로필의 **단일 provider 안에**
+머문다. 따라서 체인은 모델별 한도와 일시적 429/5xx는 넘기지만 **계정 전체 차단은 넘기지
+못한다**. 그 지점이 vendor를 갈아탈 시점이다.
+
+```bash
+gjc --mpreset openai-max            # 이번 세션만
+gjc --mpreset openai-max --default  # 기본값으로 고정
+```
+
+이 여섯 개는 GJC 본체에도 빌트인으로 들어가 있어 installer가 `models.yml`을 덮어써도
+남는다.
+
+## 검증
+
+`tests/`의 하네스 세 개로 확인한다. 앞의 둘은 실제 쿼터를 쓰지 않는다.
+
+| 하네스 | 비용 | 증명하는 것 |
+| --- | --- | --- |
+| `validate-profiles.ts` | 없음 | 모든 selector가 카탈로그에 존재하고, thinking level이 실제 지원되며, 어떤 selector도 자기 `required_providers`를 벗어나지 않음 |
+| `fallback-probe.ts` | 없음 | 로컬 픽스처 provider로 429를 강제해 체인이 실제로 강등되는지. 관측 결과 `always-429 ×3 → healthy`, 즉 `fallback.maxAttempts=3` 소진 후 다음 엔트리로 이동 |
+| `functional-smoke.ts` | 실제 토큰 | 프로필이 의도한 모델을 런타임에 바인딩하는지(GJC가 기록한 `configured_model_chain`과 대조), 그리고 파일을 읽고 세어 답을 써내는 실제 작업을 완수하는지 |
+| `delegation-probe.ts` | 실제 토큰 | executor 서브에이전트가 배정된 체인의 모델로 실제 라우팅되는지 |
+
+```bash
+bun run tests/validate-profiles.ts
+bun run tests/fallback-probe.ts
+bun run tests/functional-smoke.ts     # 실제 토큰 소모
+bun run tests/delegation-probe.ts     # 실제 토큰 소모
+```
+
+`functional-smoke.ts`와 `delegation-probe.ts`는 `--default`를 절대 넘기지 않으므로
+사용자의 기본 프로필 설정을 바꾸지 않는다.
+
 ## 모델 토큰 용량
 
 다음은 스냅샷 시점 GJC 0.16.6 catalog에 **표시된** 모델별 한도다.
