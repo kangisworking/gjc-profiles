@@ -21,7 +21,9 @@ import * as YAML from "yaml";
 
 const DEFAULT_PROFILES = ["claude-fast", "claude-max", "claude-ultra", "openai-fast", "openai-max", "openai-ultra"];
 const profiles = process.argv.slice(2).length > 0 ? process.argv.slice(2) : DEFAULT_PROFILES;
-const TIMEOUT_MS = 600_000;
+/** Every non-default role. These bind only when GJC actually delegates to them. */
+const ROLES = ["executor", "planner", "architect", "critic"] as const;
+const TIMEOUT_MS = 900_000;
 const SESSIONS = path.join(os.homedir(), ".gjc", "agent", "sessions");
 
 const doc = YAML.parse(await Bun.file("models.yml").text()) as {
@@ -71,13 +73,20 @@ function subagentChains(dir: string): string[][] {
 	return chains;
 }
 
+interface RoleResult {
+	role: string;
+	want: string;
+	got: string[];
+	ran: boolean;
+	ok: boolean;
+}
+
 interface Result {
 	profile: string;
 	delegated: boolean;
 	matched: boolean;
+	roles: RoleResult[];
 	chains: string[];
-	subagentModels: string[];
-	want: string;
 	seconds: number;
 }
 
@@ -92,7 +101,7 @@ async function runProfile(profile: string): Promise<Result> {
 			"--mpreset",
 			profile,
 			"-p",
-			"Use the task tool to launch exactly one executor subagent. That subagent must count the lines in input.txt in this directory and write the number alone into answer.txt. Do not do the counting yourself; delegate it.",
+			"Make exactly four separate task tool calls, one per agent type, in this order: executor, then planner, then architect, then critic. Each call launches exactly one subagent whose entire assignment is to read input.txt in this directory and report how many lines it has. Do not read input.txt yourself and do not skip any of the four agent types.",
 		],
 		cwd: workdir,
 		env: process.env as Record<string, string>,
@@ -141,22 +150,35 @@ async function runProfile(profile: string): Promise<Result> {
 
 	fs.rmSync(workdir, { recursive: true, force: true });
 
-	const want = expectedChain(profile, "executor");
-	const flat = chains.map(c => c.join(" -> "));
-	// The binding contract is that executor turns are served by a model from the
-	// executor chain. Token-log rows name the model that actually served the turn,
+	// The binding contract: each role's turns are served by a model from that
+	// role's chain. Token-log rows name the model that actually served the turn,
 	// which is stronger evidence than a configured chain record.
-	const allowed = new Set(want.map(entry => entry.replace(/^[^/]+\//, "").replace(/:[^:]*$/, "")));
-	const servedModels = subagentModels.map(s => s.slice(s.indexOf(":") + 1));
-	const matched =
-		(servedModels.length > 0 && servedModels.every(m => allowed.has(m))) || flat.some(c => c === want.join(" -> "));
+	const bare = (entry: string) => entry.replace(/^[^/]+\//, "").replace(/:[^:]*$/, "");
+	const served = new Map<string, Set<string>>();
+	for (const row of subagentModels) {
+		const agent = row.slice(0, row.indexOf(":"));
+		const model = row.slice(row.indexOf(":") + 1);
+		if (!served.has(agent)) served.set(agent, new Set());
+		served.get(agent)?.add(model);
+	}
+	const roles = ROLES.map(role => {
+		const want = expectedChain(profile, role);
+		const allowed = new Set(want.map(bare));
+		const got = [...(served.get(role) ?? [])];
+		return {
+			role,
+			want: want.join(" -> "),
+			got,
+			ran: got.length > 0,
+			ok: got.length > 0 && got.every(m => allowed.has(m)),
+		};
+	});
 	return {
 		profile,
-		delegated: chains.length > 0 || subagentModels.length > 0,
-		matched,
-		chains: [...new Set(flat)],
-		subagentModels: [...new Set(subagentModels)],
-		want: want.join(" -> "),
+		delegated: subagentModels.length > 0,
+		matched: roles.every(r => r.ok),
+		roles,
+		chains: [...new Set(chains.map(c => c.join(" -> ")))],
 		seconds,
 	};
 }
@@ -165,20 +187,25 @@ const results: Result[] = [];
 for (const profile of profiles) {
 	process.stdout.write(`running ${profile} ... `);
 	const r = await runProfile(profile);
-	console.log(`delegated=${r.delegated ? "yes" : "NO"} executor-match=${r.matched ? "PASS" : "FAIL"} (${r.seconds}s)`);
+	const ran = r.roles.filter(x => x.ran).length;
+	console.log(`roles-exercised=${ran}/${ROLES.length} match=${r.matched ? "PASS" : "FAIL"} (${r.seconds}s)`);
 	results.push(r);
 }
 
-console.log("\nexecutor role, intended vs what GJC recorded for the subagent:");
+console.log("\nper-role routing, intended chain vs the model that actually served the subagent turns:");
 for (const r of results) {
 	console.log(`  ${r.profile}`);
-	console.log(`    want: ${r.want}`);
-	console.log(`    got:  ${r.chains.join(" | ") || "(no subagent chain recorded)"}`);
-	if (r.subagentModels.length > 0) console.log(`    turns: ${r.subagentModels.join(", ")}`);
+	for (const role of r.roles) {
+		const status = !role.ran ? "NOT EXERCISED" : role.ok ? "ok" : "MISMATCH";
+		console.log(`    ${role.role.padEnd(10)}${status.padEnd(15)}served=${role.got.join(",") || "-"}`);
+		if (!role.ok) console.log(`    ${"".padEnd(10)}want=${role.want}`);
+	}
 }
 
 const failed = results.filter(r => !r.matched);
+const unexercised = results.flatMap(r => r.roles.filter(x => !x.ran).map(x => `${r.profile}.${x.role}`));
+if (unexercised.length > 0) console.log(`\nnot exercised (no subagent turns recorded): ${unexercised.join(", ")}`);
 console.log(
-	`\nRESULT: ${failed.length === 0 ? `PASS - every profile routed its executor subagent to the assigned chain` : `FAIL - ${failed.map(f => f.profile).join(", ")}`}`,
+	`\nRESULT: ${failed.length === 0 ? `PASS - every exercised role was served by its assigned chain` : `FAIL - ${failed.map(f => f.profile).join(", ")}`}`,
 );
 process.exit(failed.length === 0 ? 0 : 1);
