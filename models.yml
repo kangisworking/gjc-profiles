@@ -130,7 +130,7 @@ profiles:
   openai-fast:
     required_providers: [openai-codex]
     model_mapping:
-      default: [openai-codex/gpt-5.6-luna:low, openai-codex/gpt-5.4-mini:low, openai-codex/gpt-reserve:low]
+      default: [openai-codex/gpt-5.6-luna:low, openai-codex/gpt-5.4-mini:low]
       executor: [openai-codex/gpt-5.6-luna:medium, openai-codex/gpt-5.4-mini:medium, openai-codex/gpt-5.3-codex-spark:medium]
       planner: [openai-codex/gpt-5.6-sol:medium, openai-codex/gpt-5.6-luna:medium]
       architect: [openai-codex/gpt-5.6-sol:medium, openai-codex/gpt-5.6-luna:medium]
@@ -140,8 +140,8 @@ profiles:
   openai-max:
     required_providers: [openai-codex]
     model_mapping:
-      default: [openai-codex/gpt-6-astra:medium, openai-codex/gpt-5.6-sol:medium, openai-codex/gpt-5.6-luna:medium, openai-codex/gpt-reserve:medium]
-      executor: [openai-codex/gpt-5.6-terra:high, openai-codex/gpt-5.6-luna:high, openai-codex/gpt-reserve:high]
+      default: [openai-codex/gpt-6-astra:medium, openai-codex/gpt-5.6-sol:medium, openai-codex/gpt-5.6-luna:medium]
+      executor: [openai-codex/gpt-5.6-terra:high, openai-codex/gpt-5.6-luna:high]
       planner: [openai-codex/gpt-5.6-sol:high, openai-codex/gpt-6-astra:high]
       architect: [openai-codex/gpt-6-astra:high, openai-codex/gpt-5.6-sol:xhigh]
       critic: [openai-codex/gpt-5.6-sol:high, openai-codex/gpt-5.6-terra:high]
@@ -150,8 +150,36 @@ profiles:
   openai-ultra:
     required_providers: [openai-codex]
     model_mapping:
-      default: [openai-codex/gpt-6-astra:high, openai-codex/gpt-5.6-sol:high, openai-codex/gpt-reserve:high]
-      executor: [openai-codex/gpt-6-astra:max, openai-codex/gpt-5.6-terra:xhigh, openai-codex/gpt-reserve:xhigh]
+      default: [openai-codex/gpt-6-astra:high, openai-codex/gpt-5.6-sol:high]
+      executor: [openai-codex/gpt-6-astra:max, openai-codex/gpt-5.6-terra:xhigh]
       planner: [openai-codex/gpt-6-astra:xhigh, openai-codex/gpt-5.6-sol:max]
       architect: [openai-codex/gpt-6-astra:max, openai-codex/gpt-5.6-sol:xhigh]
       critic: [openai-codex/gpt-5.6-sol:max, openai-codex/gpt-6-astra:xhigh]
+
+  # Astra-only tiers for work that should stay on one OpenAI Codex model.
+  astra-fast:
+    required_providers: [openai-codex]
+    model_mapping:
+      default: openai-codex/gpt-6-astra:low
+      executor: openai-codex/gpt-6-astra:low
+      planner: openai-codex/gpt-6-astra:low
+      architect: openai-codex/gpt-6-astra:low
+      critic: openai-codex/gpt-6-astra:low
+
+  astra-medium:
+    required_providers: [openai-codex]
+    model_mapping:
+      default: openai-codex/gpt-6-astra:medium
+      executor: openai-codex/gpt-6-astra:medium
+      planner: openai-codex/gpt-6-astra:medium
+      architect: openai-codex/gpt-6-astra:medium
+      critic: openai-codex/gpt-6-astra:medium
+
+  astra-max:
+    required_providers: [openai-codex]
+    model_mapping:
+      default: openai-codex/gpt-6-astra:max
+      executor: openai-codex/gpt-6-astra:max
+      planner: openai-codex/gpt-6-astra:max
+      architect: openai-codex/gpt-6-astra:max
+      critic: openai-codex/gpt-6-astra:max
